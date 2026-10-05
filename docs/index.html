@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nepali String Localizer (in-browser)</title>
+  <style>
+    :root {
+      --accent: #dc143c;
+      --border: #d0d4dc;
+      --muted: #5f6672;
+      --bg-soft: #f5f6f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans Devanagari", sans-serif;
+      color: #1f2328;
+      background: #fff;
+    }
+    main { max-width: 760px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    h1 { margin: 0 0 0.25rem; font-size: 2rem; }
+    h2.sub { margin: 0 0 0.5rem; font-size: 1.15rem; font-weight: 500; color: var(--muted); }
+    .caption { color: var(--muted); font-size: 0.9rem; margin: 0 0 1.5rem; }
+    label { display: block; font-weight: 600; margin: 1rem 0 0.35rem; }
+    textarea, input, select {
+      width: 100%;
+      padding: 0.6rem 0.7rem;
+      font: inherit;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    button {
+      font: inherit;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #translate {
+      width: 100%;
+      margin-top: 1.25rem;
+      padding: 0.75rem;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    #translate:disabled { opacity: 0.6; cursor: progress; }
+    .notice {
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+      font-size: 0.92rem;
+    }
+    .notice.info { background: #eef4ff; border: 1px solid #c9dafc; }
+    .notice.warn { background: #fff8e6; border: 1px solid #f3dc9c; }
+    .notice.error { background: #fdecee; border: 1px solid #f5c2c8; }
+    .hidden { display: none; }
+    progress { width: 100%; height: 10px; margin-top: 0.5rem; }
+    #status { font-size: 0.85rem; color: var(--muted); margin-top: 0.75rem; min-height: 1.2em; }
+    #output { margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 0.5rem; }
+    #output h3 { margin-bottom: 0.25rem; }
+    details { margin-top: 1rem; background: var(--bg-soft); border-radius: 8px; padding: 0.5rem 0.75rem; }
+    pre { white-space: pre-wrap; word-break: break-word; font-size: 0.85rem; }
+    #copy { padding: 0.3rem 0.7rem; border: 1px solid var(--border); background: #fff; }
+    footer { margin-top: 3rem; font-size: 0.8rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Nepali String Localizer</h1>
+  <h2 class="sub">Context-Aware UI Translation for Open Source</h2>
+  <p class="caption">
+    Translate isolated English UI strings into Nepali for software localization projects like KoboToolbox.
+    The open-weight model runs entirely in your browser: no server, no API key, and after the first load, no internet.
+  </p>
+
+  <div id="gpu-warning" class="notice error hidden"></div>
+
+  <label for="source">English UI String</label>
+  <textarea id="source" placeholder='e.g. "Deploy Form" or "Data validation failed"'></textarea>
+
+  <label for="context">Context</label>
+  <input id="context" type="text" placeholder="e.g. Primary call-to-action button on the server settings page">
+
+  <label for="model">Model</label>
+  <select id="model"></select>
+
+  <div class="notice info">
+    The first translation downloads the model (about 1 to 1.5 GB) and caches it in your browser.
+    Later visits load from the cache and work offline.
+  </div>
+
+  <button id="translate" type="button">Translate to Nepali</button>
+  <div id="status"></div>
+  <progress id="progress" class="hidden" max="1" value="0"></progress>
+  <div id="error" class="notice error hidden"></div>
+
+  <section id="output" class="hidden">
+    <div id="rendered"></div>
+    <details>
+      <summary>Raw output (copy-friendly) <button id="copy" type="button">Copy</button></summary>
+      <pre id="raw"></pre>
+    </details>
+  </section>
+
+  <footer>
+    Powered by <a href="https://github.com/mlc-ai/web-llm">WebLLM</a> and open-weight models running on WebGPU.
+  </footer>
+</main>
+
+<script type="module">
+  import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+  import { marked } from "https://esm.run/marked";
+  import DOMPurify from "https://esm.run/dompurify";
+
+  // Keep in sync with SYSTEM_PROMPT in app.py.
+  const SYSTEM_PROMPT = `You are an expert English-to-Nepali software localization translator.
+You translate isolated English UI strings from open-source software (such as KoboToolbox) into Nepali.
+
+You will receive an English UI string and, optionally, context describing where it appears in the interface.
+Use the context to pick the right meaning, grammatical form, and tone.
+
+Rules:
+- Preserve placeholders, variables, and markup exactly as written (e.g. {name}, %s, %(count)d, {{count}}, <b>, </a>).
+- Keep translations concise and appropriate for UI text (buttons, labels, messages).
+- Return EXACTLY three translation options, using EXACTLY this Markdown template and nothing else:
+
+### 1. Formal
+**<translation in standard written Nepali>**
+
+<one short sentence on when to use it, e.g. official documentation or strict UI>
+
+### 2. Colloquial
+**<translation in natural, conversational Nepali>**
+
+<one short sentence on when to use it, e.g. user-friendly everyday app usage>
+
+### 3. Transliterated/Hybrid
+**<translation keeping technical terms in English, written in Devanagari (e.g. "सबमिट", "सर्भर"), or kept in Latin script where a Nepali translation would lose the technical meaning>**
+
+<one short sentence explaining which terms were kept in English and why>
+
+Do not add any preamble before the first heading or any extra sections after the third option.`;
+
+  const CANDIDATE_MODELS = [
+    { base: "gemma-2-2b-it", label: "Gemma 2 2B (best Nepali of the small models)" },
+    { base: "Qwen2.5-1.5B-Instruct", label: "Qwen 2.5 1.5B (smaller, weaker Nepali)" },
+    { base: "Llama-3.2-1B-Instruct", label: "Llama 3.2 1B (fastest, weakest Nepali)" },
+  ];
+
+  const $ = (id) => document.getElementById(id);
+  const ui = {
+    source: $("source"),
+    context: $("context"),
+    model: $("model"),
+    translate: $("translate"),
+    status: $("status"),
+    progress: $("progress"),
+    error: $("error"),
+    output: $("output"),
+    rendered: $("rendered"),
+    raw: $("raw"),
+    copy: $("copy"),
+    gpuWarning: $("gpu-warning"),
+  };
+
+  let engine = null;
+  let loadedModel = null;
+
+  function showError(message) {
+    ui.error.textContent = message;
+    ui.error.classList.remove("hidden");
+  }
+
+  function clearError() {
+    ui.error.classList.add("hidden");
+  }
+
+  function render(markdown) {
+    ui.rendered.innerHTML = DOMPurify.sanitize(marked.parse(markdown));
+    ui.raw.textContent = markdown;
+  }
+
+  async function detectQuantization() {
+    if (!navigator.gpu) return null;
+    const adapter = await navigator.gpu.requestAdapter();
+    if (!adapter) return null;
+    // Many integrated GPUs lack 16-bit float shaders; fall back to the f32 builds there.
+    return adapter.features.has("shader-f16") ? "q4f16_1" : "q4f32_1";
+  }
+
+  async function populateModels() {
+    const quant = await detectQuantization();
+    if (!quant) {
+      ui.gpuWarning.textContent =
+        "WebGPU is not available in this browser, so the model can't run here. " +
+        "Use a recent Chrome or Edge on desktop, or run the Python app with Ollama instead.";
+      ui.gpuWarning.classList.remove("hidden");
+      ui.translate.disabled = true;
+      return;
+    }
+
+    const available = new Map(webllm.prebuiltAppConfig.model_list.map((m) => [m.model_id, m]));
+    for (const candidate of CANDIDATE_MODELS) {
+      const id = `${candidate.base}-${quant}-MLC`;
+      const record = available.get(id);
+      if (!record) continue;
+      const option = document.createElement("option");
+      option.value = id;
+      const vram = record.vram_required_MB ? ` · ~${(record.vram_required_MB / 1024).toFixed(1)} GB memory` : "";
+      option.textContent = `${candidate.label}${vram}`;
+      ui.model.append(option);
+    }
+
+    if (!ui.model.options.length) {
+      showError("None of the expected models are available in this WebLLM version.");
+      ui.translate.disabled = true;
+    }
+  }
+
+  async function ensureModel(modelId) {
+    if (engine && loadedModel === modelId) return;
+
+    ui.progress.classList.remove("hidden");
+    const initProgressCallback = (report) => {
+      ui.status.textContent = report.text;
+      ui.progress.value = report.progress ?? 0;
+    };
+
+    if (!engine) {
+      engine = await webllm.CreateMLCEngine(modelId, { initProgressCallback });
+    } else {
+      engine.setInitProgressCallback(initProgressCallback);
+      await engine.reload(modelId);
+    }
+    loadedModel = modelId;
+    ui.progress.classList.add("hidden");
+  }
+
+  async function translate() {
+    clearError();
+    const text = ui.source.value.trim();
+    const context = ui.context.value.trim() || "Not provided";
+    if (!text) {
+      showError("Please enter an English UI string to translate.");
+      return;
+    }
+
+    ui.translate.disabled = true;
+    try {
+      await ensureModel(ui.model.value);
+
+      ui.status.textContent = "Translating...";
+      ui.output.classList.remove("hidden");
+      render("");
+
+      // Gemma's chat template has no system role, so the instructions travel in the user turn.
+      const userMessage = `${SYSTEM_PROMPT}\n\n---\n\nEnglish UI string: "${text}"\nContext: ${context}`;
+      const stream = await engine.chat.completions.create({
+        messages: [{ role: "user", content: userMessage }],
+        temperature: 0.3,
+        stream: true,
+      });
+
+      let reply = "";
+      for await (const chunk of stream) {
+        reply += chunk.choices[0]?.delta?.content ?? "";
+        render(reply);
+      }
+      ui.status.textContent = `Done with ${loadedModel}.`;
+    } catch (err) {
+      ui.progress.classList.add("hidden");
+      ui.status.textContent = "";
+      showError(`Translation failed: ${err?.message ?? err}`);
+    } finally {
+      ui.translate.disabled = false;
+    }
+  }
+
+  ui.translate.addEventListener("click", translate);
+  ui.copy.addEventListener("click", async (event) => {
+    event.preventDefault();
+    await navigator.clipboard.writeText(ui.raw.textContent);
+    ui.copy.textContent = "Copied";
+    setTimeout(() => (ui.copy.textContent = "Copy"), 1500);
+  });
+
+  populateModels().catch((err) => showError(`Could not initialise WebGPU: ${err?.message ?? err}`));
+</script>
+</body>
+</html>

@@ -16,16 +16,28 @@ Volunteer translators on platforms like Transifex or Weblate see strings one at 
 
 ## Open-source AI at its core
 
-The app only talks to **open-weight models**, through one OpenAI-compatible client. You can pick from two providers in the sidebar:
+The tool only uses **open-weight models**. It comes in two forms that share the same prompt:
 
-| Provider | Model (default) | Needs internet | Needs API key |
-| --- | --- | --- | --- |
-| Ollama (local) | `gemma3:4b` | No | No |
-| Groq (hosted) | `llama-3.3-70b-versatile` | Yes | Yes (free tier) |
+| Version | Where the model runs | Model (default) | Needs internet | Needs install or key |
+| --- | --- | --- | --- | --- |
+| Browser (`docs/index.html`) | In your browser via WebGPU | Gemma 2 2B | Only for the first model download | No |
+| Streamlit + Ollama | Local CPU via Ollama | `gemma3:4b` | No | Python + Ollama |
+| Streamlit + Groq | Groq's servers | `llama-3.3-70b-versatile` | Yes | Free API key |
 
-Both models are open-weight, so you can swap models, run fully offline on a laptop, or fine-tune on your project's existing Nepali translations without changing any code.
+Because every model is open-weight, you can swap models, run fully offline on a laptop, or fine-tune on your project's existing Nepali translations.
 
-## Run locally
+## Browser version (zero install)
+
+[docs/index.html](docs/index.html) is a single static page that runs the model inside the browser with [WebLLM](https://github.com/mlc-ai/web-llm). There's no backend, and strings never leave the device.
+
+- **Try it locally:** run `python -m http.server 8000 --directory docs`, then open http://localhost:8000. The page must be served over HTTP; opening the file directly won't work.
+- **Host it for free:** in your GitHub repo, open Settings, then Pages, and choose Deploy from a branch, `main`, `/docs`. Share the resulting URL with your translator friend.
+- **Requirements:** a WebGPU browser, such as recent Chrome or Edge on desktop. It works on integrated graphics; it was tested on Intel UHD 620. The first translation downloads the model (about 1 to 1.5 GB) into the browser cache; after that the page works offline.
+- **Models:** Gemma 2 2B (default, best Nepali), Qwen 2.5 1.5B, and Llama 3.2 1B (fastest, weakest Nepali). The page picks 16-bit or 32-bit builds automatically depending on what the GPU supports.
+
+The prompt in `docs/index.html` is a copy of `SYSTEM_PROMPT` in `app.py`. If you change one, update the other.
+
+## Run the Streamlit app locally
 
 1. Create and activate a virtual environment:
 
@@ -104,6 +116,7 @@ If the machine is too slow even for these, use Groq: the same open-weight approa
 ## Project layout
 
 - `app.py`: the whole Streamlit app (UI, system prompt, provider config and LLM call)
+- `docs/index.html`: the zero-install browser version (WebLLM + WebGPU), servable by GitHub Pages
 - `requirements.txt`: `streamlit`, `openai`, `python-dotenv`
 - `.env.example`: template for your `.env`
 - `SUBMISSION.md`: draft post for the DEV Hacktoberfest Weekend Challenge

@@ -28,40 +28,49 @@ Placeholders like `{name}`, `%s` and HTML tags come back untouched, so a transla
 
 ## Demo
 
-[TODO: link to a short video or GIF: type "Deploy Form", add context, click Translate, show the three options. If you record it with Ollama, show the Wi-Fi turned off to prove it runs offline.]
+**Try it in your browser:** [TODO: GitHub Pages URL, e.g. https://your-username.github.io/nepali-string-localizer/]. No install and no API key. The first translation downloads a ~1.5 GB open model into your browser cache.
+
+[TODO: short video or GIF: type "Deploy Form", add context, click Translate, show the three options. Turning Wi-Fi off after the model loads is the best proof that it runs offline.]
 
 ## Code
 
 [TODO: GitHub repo link or embed, e.g. {% github your-username/nepali-string-localizer %}]
 
-The whole app is one file, `app.py` (~140 lines), plus `requirements.txt` with `streamlit`, `openai` and `python-dotenv`.
+There are two front ends that share one prompt:
+
+- `docs/index.html`: a single static page that runs the model in the browser (WebLLM + WebGPU).
+- `app.py`: a ~140-line Streamlit app that talks to a local Ollama server or Groq.
 
 ## How I Built It
 
-- **Open-weight models:** Google's **Gemma 3 4B**, running locally through **Ollama** on a 2018 CPU-only laptop, and Meta's **Llama 3.3 70B** served by Groq for when the laptop can't handle it.
-- **Local inference:** [Ollama](https://ollama.com) exposes an OpenAI-compatible endpoint at `http://localhost:11434/v1`. The app uses the standard `openai` Python client, so the same code talks to the local Ollama server or to Groq. The only difference is the `base_url`.
-- **UI:** [Streamlit](https://streamlit.io), which takes an English string and a context box as input and renders the model's Markdown output, with a copy-friendly raw view.
-- **Prompting:** a single system prompt does the heavy lifting. It makes the model act as an English-to-Nepali software localization expert, keep placeholders intact, stay short enough for UI text, and return exactly three options in a fixed Markdown template. A low temperature (0.3) keeps the output consistent from string to string.
+I built this on a 2018 laptop: an i5-8265U with 16 GB of RAM, integrated Intel UHD 620 graphics and no dedicated GPU. That constraint shaped everything. If it runs on this machine, it runs on my friend's.
+
+- **In-browser inference:** [WebLLM](https://github.com/mlc-ai/web-llm) compiles open-weight models to WebGPU, so **Gemma 2 2B** runs inside a browser tab on integrated graphics. The page checks whether the GPU supports 16-bit float shaders and picks the matching build. Qwen 2.5 1.5B and Llama 3.2 1B are there as lighter options. There's no backend at all: GitHub Pages serves one HTML file, and the model is cached in the browser after the first load.
+- **Local inference with Ollama:** for translators who prefer a desktop setup, the Streamlit app runs **Gemma 3 4B** on the CPU through [Ollama](https://ollama.com). Ollama exposes an OpenAI-compatible endpoint, so the standard `openai` Python client talks to it, or to **Llama 3.3 70B** on Groq when more quality is needed. Switching between them only changes the `base_url`.
+- **Choosing small models for Nepali:** this was the interesting part. Most tiny models are weak at Nepali. Gemma (trained on 140+ languages) was clearly the best family at 2B to 4B, while 1B models mostly produced broken Devanagari or Hindi. [TODO: confirm or adjust this from your own testing.]
+- **Prompting:** one prompt does the heavy lifting. It makes the model act as an English-to-Nepali software localization expert, keep placeholders like `{name}` and `%s` intact, stay short enough for UI text, and return exactly three options in a fixed Markdown template. A low temperature (0.3) keeps the output consistent from string to string. Gemma's chat format has no system role, so the browser version sends the instructions in the user turn.
 
 ```mermaid
 flowchart LR
-    user[Translator] --> ui[Streamlit UI]
-    ui -->|string + context| client[OpenAI-compatible client]
-    client -->|offline| ollama["Ollama: Gemma 3 4B on laptop"]
-    client -->|online| groq["Groq: Llama 3.3 70B"]
-    ollama --> out[Formal / Colloquial / Hybrid]
+    user[Translator] --> web["Browser page: WebLLM + WebGPU"]
+    user --> st[Streamlit app]
+    web --> gemma2["Gemma 2 2B in the browser tab"]
+    st -->|offline| ollama["Ollama: Gemma 3 4B on CPU"]
+    st -->|online| groq["Groq: Llama 3.3 70B"]
+    gemma2 --> out[Formal / Colloquial / Hybrid]
+    ollama --> out
     groq --> out
 ```
 
-The provider is a radio button in the sidebar, and models are set with environment variables (`OLLAMA_MODEL`, `GROQ_MODEL`), so trying a different open model is one `ollama pull` away.
-
 ## Why Does Open Innovation Matter?
 
-**It runs on a laptop with no internet.** Volunteer localization doesn't only happen on fast office connections. With Ollama and Gemma 3 4B, [TODO: friend's name] can translate on a bus, during a load-shedding power cut on battery, or anywhere connectivity is patchy. A closed API simply stops working there.
+**It runs on an old laptop, in a browser tab, with no internet.** Volunteer localization doesn't happen on fast office machines. Because the weights are open, a 2B model can be compiled to WebGPU and shipped as a static web page. After the first load, [TODO: friend's name] can translate on a bus, during a load-shedding power cut on battery, or anywhere connectivity is patchy. A closed API simply stops working there.
 
-**It costs nothing to run.** This is volunteer work. Nobody is going to put a credit card on file for a per-token API to translate KoboToolbox strings for free. Local inference costs nothing, and the hosted fallback runs on a free tier.
+**Zero setup for the person I built it for.** My friend doesn't need Python, Ollama or an API key. They open a link. A closed model can't be shipped like that; it can only be rented through someone's server.
 
-**Unreleased strings stay on the translator's machine.** Strings from unreleased features and internal admin screens never leave the laptop in offline mode.
+**It costs nothing to run.** This is volunteer work. Nobody is going to put a credit card on file for a per-token API to translate KoboToolbox strings for free. There's no server to pay for either: GitHub Pages hosts the page, and the visitor's own GPU does the inference.
+
+**Unreleased strings stay on the translator's machine.** Strings from unreleased features and internal admin screens never leave the device in the browser and Ollama versions.
 
 **We can swap models, and eventually fine-tune.** Nepali is a lower-resource language, and different open models handle Devanagari very differently. Because the app only depends on an OpenAI-compatible endpoint, switching from Gemma to Llama to Qwen is a config change, not a rewrite. The next step is fine-tuning a small open model on the existing, human-reviewed Nepali translations from KoboToolbox's own translation files, so it learns the project's established terms. That is only possible because the weights are open.
 
