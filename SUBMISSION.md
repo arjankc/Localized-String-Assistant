@@ -28,13 +28,13 @@ Placeholders like `{name}`, `%s` and HTML tags come back untouched, so a transla
 
 ## Demo
 
-**Try it in your browser:** [TODO: GitHub Pages URL, e.g. https://your-username.github.io/nepali-string-localizer/]. No install and no API key. The first translation downloads a ~1.5 GB open model into your browser cache.
+**Try it in your browser:** https://arjankc.github.io/Localized-String-Assistant/ No install and no API key. The first translation downloads a ~1.5 GB open model into your browser cache.
 
 [TODO: short video or GIF: type "Deploy Form", add context, click Translate, show the three options. Turning Wi-Fi off after the model loads is the best proof that it runs offline.]
 
 ## Code
 
-[TODO: GitHub repo link or embed, e.g. {% github your-username/nepali-string-localizer %}]
+{% github arjankc/Localized-String-Assistant %}
 
 There are two front ends that share one prompt:
 
