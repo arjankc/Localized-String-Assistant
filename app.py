@@ -2,9 +2,23 @@ import os
 
 import streamlit as st
 from dotenv import load_dotenv
-from groq import Groq
+from openai import OpenAI
 
-DEFAULT_MODEL = "llama-3.3-70b-versatile"
+PROVIDERS = {
+    "groq": {
+        "label": "Groq (hosted open-weight model)",
+        "base_url": "https://api.groq.com/openai/v1",
+        "model_env": "GROQ_MODEL",
+        "default_model": "llama-3.3-70b-versatile",
+    },
+    "ollama": {
+        "label": "Ollama (local, offline)",
+        "base_url_env": "OLLAMA_BASE_URL",
+        "base_url": "http://localhost:11434/v1",
+        "model_env": "OLLAMA_MODEL",
+        "default_model": "gemma2:9b",
+    },
+}
 
 SYSTEM_PROMPT = """You are an expert English-to-Nepali software localization translator.
 You translate isolated English UI strings from open-source software (such as KoboToolbox) into Nepali.
@@ -40,8 +54,8 @@ def build_user_message(text: str, context: str) -> str:
     return f'English UI string: "{text.strip()}"\nContext: {context}'
 
 
-def translate(api_key: str, model: str, text: str, context: str) -> str:
-    client = Groq(api_key=api_key)
+def translate(base_url: str, api_key: str, model: str, text: str, context: str) -> str:
+    client = OpenAI(base_url=base_url, api_key=api_key)
     response = client.chat.completions.create(
         model=model,
         temperature=0.3,
@@ -56,16 +70,36 @@ def translate(api_key: str, model: str, text: str, context: str) -> str:
 st.set_page_config(page_title="Nepali String Localizer", page_icon="🇳🇵", layout="centered")
 load_dotenv()
 
-api_key = os.getenv("GROQ_API_KEY", "").strip()
-model = os.getenv("GROQ_MODEL", "").strip() or DEFAULT_MODEL
+default_provider = os.getenv("LLM_PROVIDER", "groq").strip().lower()
+if default_provider not in PROVIDERS:
+    default_provider = "groq"
 
 with st.sidebar:
     st.header("Settings")
-    st.markdown(f"**Model:** `{model}`")
-    if api_key:
-        st.success("GROQ_API_KEY is set")
+    provider = st.radio(
+        "Provider",
+        options=list(PROVIDERS),
+        index=list(PROVIDERS).index(default_provider),
+        format_func=lambda key: PROVIDERS[key]["label"],
+    )
+    config = PROVIDERS[provider]
+    model = os.getenv(config["model_env"], "").strip() or config["default_model"]
+    base_url = os.getenv(config.get("base_url_env", ""), "").strip() or config["base_url"]
+
+    if provider == "groq":
+        api_key = os.getenv("GROQ_API_KEY", "").strip()
     else:
-        st.error("GROQ_API_KEY is missing")
+        # Ollama ignores the key, but the OpenAI client requires a non-empty one.
+        api_key = "ollama"
+
+    st.markdown(f"**Model:** `{model}`")
+    if provider == "groq":
+        if api_key:
+            st.success("GROQ_API_KEY is set")
+        else:
+            st.error("GROQ_API_KEY is missing")
+    else:
+        st.info(f"Using local Ollama at `{base_url}`. Run `ollama pull {model}` first.")
 
 st.title("Nepali String Localizer")
 st.subheader("Context-Aware UI Translation for Open Source")
@@ -90,12 +124,13 @@ if st.button("Translate to Nepali", type="primary", use_container_width=True):
     elif not api_key:
         st.error(
             "GROQ_API_KEY is not set. Create a `.env` file next to `app.py` containing "
-            "`GROQ_API_KEY=your_key_here`, then restart the app."
+            "`GROQ_API_KEY=your_key_here`, then restart the app. "
+            "Or switch to the local Ollama provider in the sidebar."
         )
     else:
         try:
-            with st.spinner("Translating..."):
-                result = translate(api_key, model, source_text, context)
+            with st.spinner(f"Translating with {model}..."):
+                result = translate(base_url, api_key, model, source_text, context)
         except Exception as e:
             st.error(f"Translation failed: {e}")
         else:
