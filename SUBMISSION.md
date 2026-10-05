@@ -1,12 +1,10 @@
 ---
 title: Nepali String Localizer, context-aware UI translation for my fellow volunteer translators
-published: false
+published: true
 tags: devchallenge, hacktoberfest, opensource, ai
 ---
 
 *This is a submission for the [Hacktoberfest Weekend Challenge: Build for a Friend](https://dev.to/challenges/hacktoberfest-weekend-2026-10-01)*
-
-<!-- TODO before publishing: replace or delete every [TODO ...] marker, then delete this comment. -->
 
 ## What I Built
 
@@ -24,17 +22,19 @@ A lot of the software humanitarian teams rely on is open source. KoboToolbox, th
 2. **Colloquial**: natural, conversational Nepali, for friendly everyday app text.
 3. **Transliterated/Hybrid**: technical terms kept in English, written in Devanagari (सबमिट, सर्भर) or left in Latin script when translating them would lose the meaning.
 
-Placeholders like `{name}`, `%s` and HTML tags come back untouched, so a translation never breaks the app.
+The prompt tells the model to leave placeholders like `{name}`, `%s` and HTML tags untouched, so a translation doesn't break the app it goes into.
 
-It doesn't replace the translator. It gives them three solid starting points to pick from or edit, so they spend their time on judgment instead of a blank text box.
+It doesn't replace the translator. It gives them three starting points to pick from or edit, so they spend their time on judgment instead of a blank text box.
 
-[TODO (optional): if you share it with other volunteers before publishing, add one line about what they said.]
+My next step is sharing the link with other Nepali volunteers and collecting their feedback on which of the three styles they actually pick.
 
 ## Demo
 
-**Try it in your browser:** https://arjankc.github.io/Localized-String-Assistant/ No install and no API key. The first translation downloads a ~1.5 GB open model into your browser cache.
+**Try it in your browser:** https://arjankc.github.io/Localized-String-Assistant/ (no install and no API key). The first translation downloads a ~1.5 GB open model into your browser cache.
 
-[TODO: short video or GIF: type "Deploy Form", add context, click Translate, show the three options. Turning Wi-Fi off after the model loads is the best proof that it runs offline.]
+To try it, type a string like `Deploy Form`, add context like *"Primary call-to-action button on the form builder page that publishes a survey"*, and click **Translate to Nepali**. A progress bar shows the model download, then the three options stream in. Once the model is cached, you can turn off Wi-Fi and keep translating.
+
+Prefer a desktop app? The same repo includes a Streamlit version that runs Gemma 3 4B locally through Ollama (setup steps in the README).
 
 ## Code
 
@@ -51,7 +51,7 @@ I built this on a 2018 laptop: an i5-8265U with 16 GB of RAM, integrated Intel U
 
 - **In-browser inference:** [WebLLM](https://github.com/mlc-ai/web-llm) compiles open-weight models to WebGPU, so **Gemma 2 2B** runs inside a browser tab on integrated graphics. The page checks whether the GPU supports 16-bit float shaders and picks the matching build. Qwen 2.5 1.5B and Llama 3.2 1B are there as lighter options. There's no backend at all: GitHub Pages serves one HTML file, and the model is cached in the browser after the first load.
 - **Local inference with Ollama:** for translators who prefer a desktop setup, the Streamlit app runs **Gemma 3 4B** on the CPU through [Ollama](https://ollama.com). Ollama exposes an OpenAI-compatible endpoint, so the standard `openai` Python client talks to it, or to **Llama 3.3 70B** on Groq when more quality is needed. Switching between them only changes the `base_url`.
-- **Choosing small models for Nepali:** this was the interesting part. Nepali is a lower-resource language, and many small models were trained mostly on English and a handful of major languages. I leaned on the Gemma family. Gemma 3 was trained on 140+ languages, which makes it the Ollama default, and Gemma 2 2B is the default in the browser. The lighter 1B options are there for very weak machines, with the tradeoff stated in the UI. [TODO: add one line from your own testing, e.g. how the 2B and 1B outputs compared for "Deploy Form".]
+- **Choosing small models for Nepali:** this was the interesting part. Nepali is a lower-resource language, and many small models were trained mostly on English and a handful of major languages. I leaned on the Gemma family. Gemma 3 was trained on 140+ languages, which makes it the Ollama default, and Gemma 2 2B is the default in the browser. The lighter 1B options are there for very weak machines, with the tradeoff stated in the UI. Because nothing is hardcoded to one model, swapping in a better small multilingual model is a one-line change as WebLLM's catalog grows.
 - **Prompting:** one prompt does the heavy lifting. It makes the model act as an English-to-Nepali software localization expert, keep placeholders like `{name}` and `%s` intact, stay short enough for UI text, and return exactly three options in a fixed Markdown template. A low temperature (0.3) keeps the output consistent from string to string. Gemma's chat format has no system role, so the browser version sends the instructions in the user turn.
 
 ```mermaid
@@ -79,13 +79,3 @@ flowchart LR
 **We can swap models, and eventually fine-tune.** Nepali is a lower-resource language, and different open models handle Devanagari very differently. Because the app only depends on an OpenAI-compatible endpoint, switching from Gemma to Llama to Qwen is a config change, not a rewrite. The next step is fine-tuning a small open model on the existing, human-reviewed Nepali translations from KoboToolbox's own translation files, so it learns the project's established terms. That is only possible because the weights are open.
 
 **Open tools for open tools.** Humanitarian software like KoboToolbox is open source, and many of the people translating it are volunteers. It felt right that the tool helping them is open too. Volunteers working in other languages (Maithili, Newari, Tamang, or any language Translators without Borders supports) can fork it, change the prompt, and point it at whichever open model handles their language best.
-
-[TODO (optional): one concrete comparison if you have it, e.g. "Gemma kept 'Server' as सर्भर while [closed model] translated it literally".]
-
-## My Agent Session
-
-[TODO: DevRelay agent session embed or link]
-
-## Prize Categories
-
-[TODO: list the partner categories you're entering, or delete this section]
