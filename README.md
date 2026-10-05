@@ -20,7 +20,7 @@ The app only talks to **open-weight models**, through one OpenAI-compatible clie
 
 | Provider | Model (default) | Needs internet | Needs API key |
 | --- | --- | --- | --- |
-| Ollama (local) | `gemma2:9b` | No | No |
+| Ollama (local) | `gemma3:4b` | No | No |
 | Groq (hosted) | `llama-3.3-70b-versatile` | Yes | Yes (free tier) |
 
 Both models are open-weight, so you can swap models, run fully offline on a laptop, or fine-tune on your project's existing Nepali translations without changing any code.
@@ -50,10 +50,12 @@ Both models are open-weight, so you can swap models, run fully offline on a lapt
    Install [Ollama](https://ollama.com), then pull the model:
 
    ```bash
-   ollama pull gemma2:9b
+   ollama pull gemma3:4b
    ```
 
    Create a `.env` file containing `LLM_PROVIDER=ollama`, or just select Ollama in the sidebar.
+
+   No GPU is needed: Ollama runs on the CPU. See [Choosing a local model](#choosing-a-local-model) if your laptop is slow.
 
    **Option B: Hosted with Groq**
 
@@ -80,8 +82,24 @@ All settings are optional environment variables, read from `.env` (see [.env.exa
 | `LLM_PROVIDER` | `groq` | Provider selected in the sidebar when the app starts (`groq` or `ollama`) |
 | `GROQ_API_KEY` | none | Required only for the Groq provider |
 | `GROQ_MODEL` | `llama-3.3-70b-versatile` | Any chat model available on Groq |
-| `OLLAMA_MODEL` | `gemma2:9b` | Any model you have pulled locally (for example `llama3.1:8b`, `qwen2.5:7b`) |
+| `OLLAMA_MODEL` | `gemma3:4b` | Any model you have pulled locally (see below) |
 | `OLLAMA_BASE_URL` | `http://localhost:11434/v1` | Point at an Ollama server on another machine |
+
+## Choosing a local model
+
+The default, `gemma3:4b`, is built to run on an ordinary laptop. It was developed on a 2018 i5 laptop with 16 GB of RAM and integrated Intel graphics, with no dedicated GPU. Small models vary a lot in how well they handle Nepali, so choose deliberately:
+
+| Model | Download | Nepali quality | When to use |
+| --- | --- | --- | --- |
+| `gemma3:4b` | ~3.3 GB | Good for its size (trained on 140+ languages) | Default. Best balance on a CPU-only laptop. |
+| `gemma2:2b` | ~1.6 GB | Fair | Very slow machines or 8 GB of RAM |
+| `gemma3:12b` | ~8 GB | Better | 16 GB+ RAM and a GPU, or when you can wait |
+| `llama3.2:3b`, `qwen2.5:3b` | ~2 GB | Weak | Not recommended for Nepali |
+| Models of 1B or smaller | under 1 GB | Poor | Not recommended for Nepali |
+
+To switch, run `ollama pull <model>`, then set `OLLAMA_MODEL=<model>` in `.env`.
+
+If the machine is too slow even for these, use Groq: the same open-weight approach, served remotely on a free tier.
 
 ## Project layout
 

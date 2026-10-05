@@ -16,7 +16,7 @@ PROVIDERS = {
         "base_url_env": "OLLAMA_BASE_URL",
         "base_url": "http://localhost:11434/v1",
         "model_env": "OLLAMA_MODEL",
-        "default_model": "gemma2:9b",
+        "default_model": "gemma3:4b",
     },
 }
 

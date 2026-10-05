@@ -38,7 +38,7 @@ The whole app is one file, `app.py` (~140 lines), plus `requirements.txt` with `
 
 ## How I Built It
 
-- **Open-weight models:** Google's **Gemma 2 9B**, running locally through **Ollama**, and Meta's **Llama 3.3 70B** served by Groq for when the laptop can't handle it.
+- **Open-weight models:** Google's **Gemma 3 4B**, running locally through **Ollama** on a 2018 CPU-only laptop, and Meta's **Llama 3.3 70B** served by Groq for when the laptop can't handle it.
 - **Local inference:** [Ollama](https://ollama.com) exposes an OpenAI-compatible endpoint at `http://localhost:11434/v1`. The app uses the standard `openai` Python client, so the same code talks to the local Ollama server or to Groq. The only difference is the `base_url`.
 - **UI:** [Streamlit](https://streamlit.io), which takes an English string and a context box as input and renders the model's Markdown output, with a copy-friendly raw view.
 - **Prompting:** a single system prompt does the heavy lifting. It makes the model act as an English-to-Nepali software localization expert, keep placeholders intact, stay short enough for UI text, and return exactly three options in a fixed Markdown template. A low temperature (0.3) keeps the output consistent from string to string.
@@ -47,7 +47,7 @@ The whole app is one file, `app.py` (~140 lines), plus `requirements.txt` with `
 flowchart LR
     user[Translator] --> ui[Streamlit UI]
     ui -->|string + context| client[OpenAI-compatible client]
-    client -->|offline| ollama["Ollama: Gemma 2 9B on laptop"]
+    client -->|offline| ollama["Ollama: Gemma 3 4B on laptop"]
     client -->|online| groq["Groq: Llama 3.3 70B"]
     ollama --> out[Formal / Colloquial / Hybrid]
     groq --> out
@@ -57,7 +57,7 @@ The provider is a radio button in the sidebar, and models are set with environme
 
 ## Why Does Open Innovation Matter?
 
-**It runs on a laptop with no internet.** Volunteer localization doesn't only happen on fast office connections. With Ollama and Gemma 2 9B, [TODO: friend's name] can translate on a bus, during a load-shedding power cut on battery, or anywhere connectivity is patchy. A closed API simply stops working there.
+**It runs on a laptop with no internet.** Volunteer localization doesn't only happen on fast office connections. With Ollama and Gemma 3 4B, [TODO: friend's name] can translate on a bus, during a load-shedding power cut on battery, or anywhere connectivity is patchy. A closed API simply stops working there.
 
 **It costs nothing to run.** This is volunteer work. Nobody is going to put a credit card on file for a per-token API to translate KoboToolbox strings for free. Local inference costs nothing, and the hosted fallback runs on a free tier.
 
